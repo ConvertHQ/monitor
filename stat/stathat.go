@@ -3,6 +3,8 @@ package stat
 import (
 	"github.com/e-dard/gev"
 	"github.com/stathat/go"
+	"log"
+	"time"
 )
 
 // StatHat implements the Statter interface for the Stat Hat service
@@ -48,7 +50,7 @@ func (s StatHat) Count(stat string, n int) error {
 	return stathat.PostEZCount(stat, s.key, n)
 }
 
-// Measure sends a value to a  Stat Hat value. It's threadsafe, and will
+// Measure sends a value to a Stat Hat value. It's threadsafe, and will
 // not make a call if the Stat Hat API key is not present.
 func (s StatHat) Measure(stat string, v float64) error {
 	if s.key == "" {
@@ -57,10 +59,28 @@ func (s StatHat) Measure(stat string, v float64) error {
 	return stathat.PostEZValue(stat, s.key, v)
 }
 
+// TimeStat is a function to measure the time between `start` and when
+// this function is called. The result is sent to StatHat.
+// The intention for this function is to be used within a `defer`, e.g.
+//	now := time.Now()
+//	defer stat.TimeStat(now, "Timing Something", time.Millisecond)
+func (s StatHat) TimeStat(start time.Time, stat string, dur time.Duration) {
+	tms := time.Since(start) / dur
+	go func() {
+		if err := s.Measure(stat, float64(tms)); err != nil {
+			log.Println(err)
+		}
+	}()
+}
+
 func Count(stat string, n int) error {
 	return std.Count(stat, n)
 }
 
 func Measure(stat string, v float64) error {
 	return std.Measure(stat, v)
+}
+
+func TimeStat(start time.Time, stat string, dur time.Duration) {
+	std.TimeStat(start, stat, dur)
 }
