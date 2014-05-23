@@ -3,13 +3,11 @@ package stat
 import (
 	"github.com/e-dard/gev"
 	"github.com/stathat/go"
-	"sync"
 )
 
 // StatHat implements the Statter interface for the Stat Hat service
 type StatHat struct {
-	Key string `env:"SH_KEY"`
-	mu  sync.RWMutex
+	key string `env:"SH_KEY"`
 }
 
 var std = NewStatHat("")
@@ -22,38 +20,41 @@ var std = NewStatHat("")
 //
 // NewStatHat panics if there is a problem reading this variable, though
 // it won't panic if the variable is missing from the environment.
-func NewStatHat(key string) StatHat {
-	s := StatHat{}
-	if err := gev.Unmarshal(&s); err != nil {
+func NewStatHat(key string) (s StatHat) {
+	if key != "" {
+		s.key = key
+		return
+	}
+
+	str := struct {
+		Key string `env:"SH_KEY"`
+	}{}
+
+	if err := gev.Unmarshal(&str); err != nil {
 		panic(err)
 	}
 
-	if key != "" {
-		s.Key = key
-	}
-	return s
+	s.key = str.Key
+
+	return
 }
 
 // Count increments a Stat Hat counter by n. It's threadsafe, and will
 // not make a call if the Stat Hat API key is not present.
 func (s StatHat) Count(stat string, n int) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.Key == "" {
+	if s.key == "" {
 		return nil
 	}
-	return stathat.PostEZCount(stat, s.Key, n)
+	return stathat.PostEZCount(stat, s.key, n)
 }
 
 // Measure sends a value to a  Stat Hat value. It's threadsafe, and will
 // not make a call if the Stat Hat API key is not present.
 func (s StatHat) Measure(stat string, v float64) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.Key == "" {
+	if s.key == "" {
 		return nil
 	}
-	return stathat.PostEZValue(stat, s.Key, v)
+	return stathat.PostEZValue(stat, s.key, v)
 }
 
 func Count(stat string, n int) error {
